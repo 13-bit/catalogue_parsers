@@ -1,26 +1,13 @@
-require 'yaml'
+require 'cobravsmongoose'
+require 'rexml/document'
 
-class Dso
-  attr_accessor :ngc, :alt, :objType, :raStr, :ra, :declStr, :decl, :mag, :desc, :notes
-  
-  def initialize(ngc, alt, type, ra_str, ra, decl_str, decl, mag, desc, notes)
-    @ngc = ngc
-    @alt = alt
-    @objType = type
-    @raStr = ra_str
-    @ra = ra
-    @declStr = decl_str
-    @decl = decl
-    @mag = mag
-    @desc = desc
-    @notes = notes
-  end
-end
+catalogue_fn = ARGV[0]
+xml_fn = ARGV[1]
 
 dsos = []
 
-# Open the catalog file.
-File.open('rngc_catalog.dat', 'r') do |f|
+# Open the catalogue file.
+File.open(catalogue_fn, 'r') do |f|
   id = 0
   
   # Add the DSO from each line to the database.
@@ -43,20 +30,6 @@ File.open('rngc_catalog.dat', 'r') do |f|
     type_str = ""
     bytes[7..8].each {|b| type_str << b}
     type_str.gsub!(' ', '')
-
-    type = ""
-
-    if type_str == "5"
-      type = "GX"
-    elsif type_str == "3" or type_str == "4"
-      type = "NB"
-    elsif type_str == "1" or type_str == "6"
-      type = "OC"
-    elsif type_str == "2"
-      type = "GC"
-    else
-      type = "other"
-    end
     
     # Right ascension hours (bytes 10-11).
     ra_h_str = ""
@@ -68,9 +41,6 @@ File.open('rngc_catalog.dat', 'r') do |f|
     bytes[13..16].each {|b| ra_m_str << b}
     ra_m_str.gsub!(' ', '')
     
-    # Combined right ascension string.
-    ra_str = "#{ra_h_str} #{ra_m_str}"
-    
     # Right ascension numerical value. (Converted from hours to degrees.)
     ra_num = (ra_h_str.to_f + (ra_m_str.to_f / 60.0)) * 15.0
     
@@ -80,7 +50,7 @@ File.open('rngc_catalog.dat', 'r') do |f|
     dec_s_str.gsub!(' ', '')  
     
     # Declination degrees (bytes 19-20).
-    dec_d_str = ""
+    dec_d_str = (dec_s_str == '-') ? dec_s_str : ''
     bytes[19..20].each {|b| dec_d_str << b}
     dec_d_str.gsub!(' ', '')  
     
@@ -88,9 +58,6 @@ File.open('rngc_catalog.dat', 'r') do |f|
     dec_m_str = ""
     bytes[22..23].each {|b| dec_m_str << b}
     dec_m_str.gsub!(' ', '')
-    
-    # Combined declination string.
-    dec_str = "#{dec_s_str}#{dec_d_str} #{dec_m_str}"
     
     # Declination numerical value.
     dec_num = dec_d_str.to_f + (dec_m_str.to_f / 60.0)
@@ -125,20 +92,16 @@ File.open('rngc_catalog.dat', 'r') do |f|
     notes_str.gsub!(',', ';')
     notes_str.strip!
     
-    dsos << Dso.new(ngc_str, "", type, ra_str, ra_num, dec_str, dec_num, mag_str.to_f, desc_str, notes_str)
-
-    id += 1
+    dso = {'ngcNumber' => {'$' => ngc_str}, 'dsoType' => {'$' => type_str},
+            'rightAscension' => {'$' => ra_num.to_s}, 'rightAscensionHours' => {'$' => ra_h_str},
+            'rightAscensionMinutes' => {'$' => ra_m_str}, 'declination' => {'$' => dec_num.to_s},
+            'declinationDegrees' => {'$' => dec_d_str}, 'declinationMinutes' => {'$' => dec_m_str},
+            'magnitude' => {'$' => mag_str}}
+    
+    dsos << dso
   end
 end
 
-File.open("dsos_temp.yml", 'w') do |file|
-  file.puts dsos.to_yaml
-end
+rngc = {'RNGC' => {'DSO' => dsos}}
 
-File.open("dsos_temp.yml", 'r') do |in_file|
-  File.open("dsos.yml", 'w') do |out_file|
-    in_file.readlines.each do |line|
-      out_file.puts line.gsub("!ruby/object:Dso", "!astrolabe.dso.Dso").gsub("ra:", "ra: !java.lang.Double").gsub("decl:", "decl: !java.lang.Double").gsub("mag:", "mag: !java.lang.Double")
-    end
-  end
-end
+REXML::Document.new(CobraVsMongoose.hash_to_xml(rngc)).write(File.open(xml_fn, 'w'), 2)

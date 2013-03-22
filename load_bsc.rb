@@ -1,27 +1,20 @@
-require 'yaml'
+require 'cobravsmongoose'
+require 'rexml/document'
 
-class Star
-  attr_accessor :bsn, :ra, :decl, :mag
-  
-  def initialize(bsn, ra, decl, mag)
-    @bsn = bsn
-    @ra = ra
-    @decl = decl
-    @mag = mag
-  end
-end
+catalogue_fn = ARGV[0]
+xml_fn = ARGV[1]
 
 stars = []
 
 # Open the catalog file.
-File.open('bsc_catalog.dat', 'r') do |f|
+File.open(catalogue_fn, 'r') do |f|
   # Add the DSO from each line to the database.
   f.each_line do |line|
     bytes = []
     
     line.each_byte {|b| bytes << b}
     
-    # Build the DSO's properties.
+    # Build the star's properties.
     
     # Bright star number (bytes 1-4).
     bsn_str = ""
@@ -72,9 +65,6 @@ File.open('bsc_catalog.dat', 'r') do |f|
     bytes[89..90].each {|b| dec_s_str << b}
     dec_s_str.gsub!(' ', '')
 
-    # Combined declination string.
-    dec_str = "#{dec_s_str}#{dec_d_str} #{dec_m_str} #{dec_s_str}"
-
     # Declination numerical value.
     dec_num = dec_d_str.to_f + (dec_m_str.to_f / 60.0) + (dec_s_str.to_f / (60.0 * 60.0))
 
@@ -95,19 +85,16 @@ File.open('bsc_catalog.dat', 'r') do |f|
     end
 
     mag_str.gsub!(' ', '')
+    
+    star = {'bscNumber' => {'$' => bsn_str}, 'rightAscension' => {'$' => ra_num.to_s},
+            'rightAscensionHours' => {'$' => ra_h_str}, 'rightAscensionMinutes' => {'$' => ra_m_str},
+            'declination' => {'$' => dec_num.to_s}, 'declinationDegrees' => {'$' => dec_d_str},
+            'declinationMinutes' => {'$' => dec_m_str}, 'magnitude' => {'$' => mag_str}}
 
-    stars << Star.new(bsn_str, ra_num, dec_num, mag_str.to_f)
+    stars << star
   end
 end
 
-File.open("stars_temp.yml", 'w') do |file|
-  file.puts stars.to_yaml
-end
+bsc = {'BSC' => {'Star' => stars}}
 
-File.open("stars_temp.yml", 'r') do |in_file|
-  File.open("stars.yml", 'w') do |out_file|
-    in_file.readlines.each do |line|
-      out_file.puts line.gsub("!ruby/object:Star", "!astrolabe.star.Star").gsub("ra:", "ra: !java.lang.Double").gsub("decl:", "decl: !java.lang.Double").gsub("mag:", "mag: !java.lang.Double")
-    end
-  end
-end
+REXML::Document.new(CobraVsMongoose.hash_to_xml(bsc)).write(File.open(xml_fn, 'w'), 2)

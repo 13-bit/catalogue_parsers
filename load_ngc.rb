@@ -41,8 +41,8 @@ File.open(catalogue_fn, 'r') do |f|
     bytes[13..16].each {|b| ra_m_str << b}
     ra_m_str.gsub!(' ', '')
     
-    # Right ascension numerical value. (Converted from hours to degrees.)
-    ra_num = (ra_h_str.to_f + (ra_m_str.to_f / 60.0)) * 15.0
+    # Right ascension numerical value (in hours).
+    ra_num = (ra_h_str.to_f + (ra_m_str.to_f / 60.0))
     
     # Declination sign (byte 18).
     dec_s_str = ""

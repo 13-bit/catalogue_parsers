@@ -67,8 +67,8 @@ File.open(catalogue_fn, 'r') do |f|
     # Combined right ascension string.
     ra_str = "#{ra_h_str} #{ra_m_str} #{ra_s_str}"
 
-    # Right ascension numerical value. (Converted from hours to degrees.)
-    ra_num = (ra_h_str.to_f + (ra_m_str.to_f / 60.0) + (ra_s_str.to_f / (60.0 * 60.0))) * 15.0
+    # Right ascension numerical value (in hours).
+    ra_num = (ra_h_str.to_f + (ra_m_str.to_f / 60.0) + (ra_s_str.to_f / (60.0 * 60.0)))
 
     # Declination sign (byte 84).
     dec_s_str = ""

@@ -1,7 +1,7 @@
 Astronomical Catalogue Parsers
 ==============================
 
-Parsers for Revised New General Catalogue and Yale Bright Star Catalogue. Converts DAT files to YAML.
+Parsers for Revised New General Catalogue, Yale Bright Star Catalogue, and Herschel 400 data files. Converts DAT/TXT files to YAML.
 
 
 License
